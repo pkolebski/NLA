@@ -1,10 +1,13 @@
 import re
 from typing import List
 
+import regex
+
 
 class Tokenizer:
     def sentencize(self, text: str) -> List[str]:
         text = re.sub(r"\[\w\d*\]", '', text)
+        # get im. acronym, e. g. Gimnazjum im. Mikołaja Kopernika
         text = re.sub(r"([A-Z][a-z]*\sim\.)", r"\1<A>", text)
         text = re.sub(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', '<S>', text)
         text = text.replace('<A>', '')
@@ -12,9 +15,37 @@ class Tokenizer:
         return text
 
     def tokenize(self, text: str) -> List[str]:
-        token_pat = r"(?=\W)|(?<=\W)|\s+"
-        text = re.sub(token_pat, "<T>", text)
-        text = [x for x in text.split("<T>") if x]
+        text = re.sub(r"(\.{3})", r" <D>\1<D>", text)  # capturing ellpsis
+        text = re.sub(r"(\()", r"\1 ", text)  # add whitespace after (
+        text = re.sub(r"(\))", r" \1", text)  # add whitespace before )
+        text = re.sub(
+            r"(\.$|\,)", r" \1", text)  # add whtiespace before , and .
+
+        date_regex = r"\d+\s(?:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)+\s?\d*"
+        for s in re.findall(date_regex, text):
+            s_new = re.sub(r"\s", "<D>", s)
+            text = text.replace(s, s_new)
+
+        street_regex = r"(?:przy|na)\sulicy\s[A-Z][a-z]+\s?\d?"
+        # print(re.findall(street_regex, text))
+        for s in re.findall(street_regex, text):
+            s_new = re.sub(r"\s", "<D>", s)
+            text = text.replace(s, s_new)
+
+        # captures e.g. II Państwowego Gimnazjum im. Karola Szajnochy as well as Wysoki Zamek
+        capitals_regex = r"(?:[A-Z]\p{L}+\s*)+(?:\sim\.)?(?:\s[A-Z]\p{L}+)+"
+        for s in regex.findall(capitals_regex, text):
+            s_new = re.sub(r"\s", "<D>", s)
+            text = text.replace(s, s_new)
+
+        places_regex = r"(?:w|we)\s\p{Lu}[a-z]*"
+        for s in regex.findall(places_regex, text):
+            s_new = re.sub(r"\s", "<D>", s)
+            text = text.replace(s, s_new)
+
+        text = text.split()
+        for i, t in enumerate(text):
+            text[i] = t.replace("<D>", " ").strip()
         text = ["<SOS>"] + text + ["<EOS>"]
         return text
 
