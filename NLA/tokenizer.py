@@ -1,10 +1,19 @@
 import re
 from typing import List
+import morfeusz2
 
 import regex
 
 
 class Tokenizer:
+    def __init__(self):
+        self.morf = morfeusz2.Morfeusz()
+
+    def morf_analysis(self, text):
+        if ' ' in text:
+            return None
+        return self.morf.generate(text)
+
     def sentencize(self, text: str) -> List[str]:
         text = re.sub(r"\[\w\d*\]", '', text)
         # get im. acronym, e. g. Gimnazjum im. Mikołaja Kopernika
@@ -61,5 +70,5 @@ if __name__ == '__main__':
         print(f"Sentence ({i}): {sent}")
         tokens = tokenizer.tokenize(sent)
         for i, t in enumerate(tokens):
-            print(f"Token ({i}): {t}")
+            print(f"Token ({i}): {t} - {tokenizer.morf_analysis(t)}")
         print()
