@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from collections import namedtuple
 from functools import partial
 
+import click
 import daiquiri
 import pandas as pd
 import tqdm
@@ -82,7 +83,7 @@ def get_tagged_data(data, tagger):
     return tagged_data
 
 
-def process_file(entry, tagger):
+def process_file(entry, tagger, processed_path):
     with open(entry['path'], encoding='utf-8') as f:
         text = f.read()
     df = pd.DataFrame.from_dict(
@@ -93,7 +94,7 @@ def process_file(entry, tagger):
     df = clean_data(df, 'text')
     df['tokens'] = df.apply(lambda x: get_tagged_data(x, tagger), axis=1)
     df.to_pickle(os.path.join(
-        processed_train_path, df['filename'].iloc[0].replace('.txt', '.pkl')
+        processed_path, df['filename'].iloc[0].replace('.txt', '.pkl')
     ))
 
 
@@ -108,19 +109,33 @@ def run_imap_multiprocessing(func, argument_list, num_processes):
     return result_list_tqdm
 
 
-if __name__ == '__main__':
+@click.command()
+@click.option('--path', '-p',
+              type=click.STRING,
+              default=train_path,
+              help="Path to the files you want to process")
+@click.option('--processed-path', '-pp',
+              type=click.STRING,
+              default=processed_train_path,
+              help="Path to the folder where you want to save processed files")
+def run_data_tagging(path, processed_path):
     clarin_tagger = ClarinTagger()
 
-    train_path_list = load_data(train_path)
-    processed_train_path_list = load_data(processed_train_path)
-    filtered_train_path_list = \
-        filter_processed(train_path_list, processed_train_path_list)
+    path_list = load_data(path)
+    processed_path_list = load_data(processed_path)
+    filtered_path_list = \
+        filter_processed(path_list, processed_path_list)
 
     run_imap_multiprocessing(
-        func=partial(process_file, tagger=clarin_tagger),
-        argument_list=filtered_train_path_list,
+        func=partial(process_file, tagger=clarin_tagger,
+                     processed_path=processed_path),
+        argument_list=filtered_path_list,
         num_processes=N_JOBS
     )
+
+
+if __name__ == '__main__':
+    run_data_tagging()
 
 # with multiprocessing.Pool(N_JOBS) as pool:
 #     pool.map(
