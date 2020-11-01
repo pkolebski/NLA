@@ -1,7 +1,7 @@
 import abc
 import json
-import re
 
+import click
 import requests
 import spacy
 
@@ -53,10 +53,39 @@ class SpacyTagger(TaggerClass):
         return results
 
 
+@click.command()
+@click.option('--file-path', '-fp',
+              type=click.STRING,
+              default="data/test-raw.txt",
+              help="Path to the file you want to tag")
+@click.option('--lpmn', '-l',
+              type=click.STRING,
+              default=LPMN,
+              help="LPMN for the tagger API - use any2txt|wcrft2 or "
+                   "any2txt|morphoDita")
+def run_tagger(file_path, lpmn):
+    with open(file_path, encoding='utf-8') as f:
+        text = f.read()
+    tagger = ClarinTagger(lpmn=lpmn)
+    tagged_text = tagger.tag(text)
+    with open("output_wcrft2.ccl", "w") as f:
+        f.write(tagged_text)
+
+
+# with open('lem2.txt', 'r', encoding='utf-8') as f:
+
+
 if __name__ == '__main__':
-    with open('lem2.txt', 'r', encoding='utf-8') as f:
-        text = f.read().replace('\n', ' ').replace('  ', ' ')
-    text = re.sub(r"\[\w\d*\]", '', text)
-    tagger = ClarinTagger()
-    r = tagger.tag(text)
-    print(r)
+    run_tagger()
+
+    # #     text = f.read().replace('\n', ' ').replace('  ', ' ')
+    # # text = re.sub(r"\[\w\d*\]", '', text)
+    # with open('data/test-raw.txt', encoding='utf-8') as f:
+    #     text = f.read()
+    # # text = text.splitlines()
+    # # text = [t for t in text if t != '']
+    # # print(text)
+    # # print(text.splitlines())
+    # tagger = ClarinTagger()
+    # r = tagger.tag(text)
+    # print(r)
