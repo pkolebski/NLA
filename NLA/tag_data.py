@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import pickle
 import time
 import xml.etree.ElementTree as ET
 from collections import namedtuple
@@ -22,11 +23,13 @@ data_path = 'wiki_data'
 train_path = os.path.join(data_path, 'wiki_train_34_categories_data')
 test_path = os.path.join(data_path, 'wiki_test_34_categories_data')
 processed_train_path = os.path.join(
-    data_path, 'wiki_train_34_categories_data_processed')
+    data_path, 'wiki_train_34_categories_data_processed_morphoDita')
 processed_test_path = os.path.join(
-    data_path, 'wiki_test_34_categories_data_processed')
+    data_path, 'wiki_test_34_categories_data_processed_morphoDita')
 
 N_JOBS = 50
+
+EXCEPTION_FILES = []
 
 if not os.path.exists(processed_train_path):
     os.makedirs(processed_train_path)
@@ -56,10 +59,27 @@ def filter_processed(paths, processed_paths):
             if el['name'].split('.')[0] not in processed_files]
 
 
+def try_get_tagged_token(token):
+    try:
+        return get_tagged_token(token)
+    except:
+        print(f"Exception in {token} token")
+        return None
+
+
 def get_tagged_token(token):
     try:
         return Token(text=token[1][0].text, tag=token[1][1].text)
     except IndexError:
+        return None
+
+
+def try_get_tagged_data(data, tagger):
+    try:
+        return get_tagged_data(data, tagger)
+    except:
+        EXCEPTION_FILES.append(data['filename'])
+        print(f"Exception in {data['filename']} file")
         return None
 
 
@@ -75,7 +95,7 @@ def get_tagged_data(data, tagger):
     root = ET.fromstring(parsed_data)
     for chunk in root:
         for token in chunk[0]:
-            tagged_token = get_tagged_token(token)
+            tagged_token = try_get_tagged_token(token)
             if tagged_token:
                 tagged_data.append(tagged_token)
     # logging.info(f"Parsed {filename}! Parsing time: {elapsed_parsing_time}, "
@@ -92,7 +112,7 @@ def process_file(entry, tagger, processed_path):
          'filename': [entry['name']]}
     )
     df = clean_data(df, 'text')
-    df['tokens'] = df.apply(lambda x: get_tagged_data(x, tagger), axis=1)
+    df['tokens'] = df.apply(lambda x: try_get_tagged_data(x, tagger), axis=1)
     df.to_pickle(os.path.join(
         processed_path, df['filename'].iloc[0].replace('.txt', '.pkl')
     ))
@@ -118,8 +138,12 @@ def run_imap_multiprocessing(func, argument_list, num_processes):
               type=click.STRING,
               default=processed_train_path,
               help="Path to the folder where you want to save processed files")
-def run_data_tagging(path, processed_path):
-    clarin_tagger = ClarinTagger()
+@click.option('--lpmn', '-lpmn',
+              type=click.STRING,
+              default="any2txt|morphoDita",
+              help="LPMN variable to tagger API - choosing endpoint")
+def run_data_tagging(path, processed_path, lpmn):
+    clarin_tagger = ClarinTagger(lpmn=lpmn)
 
     path_list = load_data(path)
     processed_path_list = load_data(processed_path)
@@ -132,6 +156,8 @@ def run_data_tagging(path, processed_path):
         argument_list=filtered_path_list,
         num_processes=N_JOBS
     )
+    with open('expception_files_list.pkl', 'wb') as f:
+        pickle.dump(EXCEPTION_FILES, f)
 
 
 if __name__ == '__main__':
