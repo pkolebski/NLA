@@ -162,9 +162,3 @@ def run_data_tagging(path, processed_path, lpmn):
 
 if __name__ == '__main__':
     run_data_tagging()
-
-# with multiprocessing.Pool(N_JOBS) as pool:
-#     pool.map(
-#         partial(process_file, tagger=clarin_tagger),
-#         filtered_train_path_list
-#     )

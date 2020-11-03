@@ -1,7 +1,7 @@
 import re
 from typing import List
-import morfeusz2
 
+import morfeusz2
 import regex
 
 
